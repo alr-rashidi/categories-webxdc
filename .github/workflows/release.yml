@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version and filename
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            XDC_NAME="Categories-${VERSION}.xdc"
+          else
+            VERSION="dev"
+            XDC_NAME="Categories-dev.xdc"
+          fi
+
+          {
+            echo "VERSION=${VERSION}"
+            echo "XDC_NAME=${XDC_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Using version: ${VERSION}"
+          echo "Using filename: ${XDC_NAME}"
+
+      - name: Update manifest.toml version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          echo "Updating version to ${VERSION}"
+
+          # Replace existing version line or append if missing
+          if grep -q '^version[[:space:]]*=' manifest.toml; then
+            sed -i "s/^version[[:space:]]*=.*/version = \"${VERSION}\"/" manifest.toml
+          else
+            echo "version = \"${VERSION}\"" >> manifest.toml
+          fi
+
+          echo "=== manifest.toml ==="
+          cat manifest.toml
+
+      - name: Build .xdc file
+        run: |
+          XDC_NAME="${{ steps.version.outputs.XDC_NAME }}"
+
+          zip -r "${XDC_NAME}" . \
+            -x ".git/*" \
+            -x ".github/*" \
+            -x "temp/*" \
+            -x "git-assets/*" \
+            -x "README.md" \
+            -x "*.xdc"          # avoid packaging a previous build
+
+          echo "=== Contents of ${XDC_NAME} ==="
+          unzip -l "${XDC_NAME}"
+          test -s "${XDC_NAME}"
+
+      - name: Upload .xdc as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.XDC_NAME }}
+          path: ${{ steps.version.outputs.XDC_NAME }}
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.version.outputs.XDC_NAME }}
+          generate_release_notes: true

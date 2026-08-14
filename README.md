@@ -20,11 +20,7 @@
 
 The app is plain HTML/CSS/JS with no build step. Open `index.html` directly in a browser to develop — `main.js` includes a fallback mock of the webxdc API so everything works outside Delta Chat (updates are echoed back locally instead of being sent over a chat).
 
-To test real chat integration, package the folder as a `.xdc` (zip) file and share it in a Delta Chat chat:
-
-```bash
-./temp/make-xdc.sh   # produces temp/app.xdc
-```
+To test real chat integration, package the folder as a `.zip` file, rename it to `.xdc` and share it in a DeltaChat chat.
 
 ### Adding a language
 
